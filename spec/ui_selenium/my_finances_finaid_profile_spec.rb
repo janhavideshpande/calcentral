@@ -8,11 +8,8 @@ describe 'My Finances Financial Aid Profile card', :testui => true do
       @driver = WebDriverUtils.launch_browser
       test_users = UserUtils.load_test_users
       testable_users = []
-      test_output = UserUtils.initialize_output_csv(self)
-
-      CSV.open(test_output, 'wb') do |row|
-        row << ['UID', 'Aid Years', 'Career', 'Grad Date', 'Enrollment', 'Residency', 'Family in College', 'Housing']
-      end
+      test_output_heading = ['UID', 'Aid Years', 'Career', 'Grad Date', 'Enrollment', 'Residency', 'Family in College', 'Housing']
+      test_output = UserUtils.initialize_output_csv(self, test_output_heading)
 
       @api_aid_years = ApiCSAidYearsPage.new @driver
       @api_fin_aid_data = ApiCSFinAidDataPage.new @driver
@@ -117,7 +114,7 @@ describe 'My Finances Financial Aid Profile card', :testui => true do
                   it ("displays the right housing associated with each semester for UID #{uid}") { expect(ui_housing).to eql(api_housing) }
 
                   has_update_family_link = @fin_aid_page.family_members_update_link?
-                  it ("offers a family members in college 'update' link for UID #{uid}") { expect(has_update_family_link).to be true }
+                  it ("offers no family members in college 'update' link for UID #{uid}") { expect(has_update_family_link).to be false }
 
                   has_update_housing_link = @fin_aid_page.housing_update_link?
                   it ("offers housing 'update' link for UID #{uid}") { expect(has_update_housing_link).to be true }
@@ -178,9 +175,9 @@ describe 'My Finances Financial Aid Profile card', :testui => true do
             it ("caused an unexpected error in the test for UID #{uid}") { fail }
 
           ensure
-            CSV.open(test_output, 'a+') do |user_info_csv|
-              user_info_csv << [uid, aid_years * ', ', api_academic_career * ', ', api_expected_grad, api_enrollments * ', ', api_residency * ', ', api_family_in_college, api_housing * ', ']
-            end
+            test_output_row = [uid, aid_years * ', ', api_academic_career * ', ', api_expected_grad, api_enrollments * ', ',
+                               api_residency * ', ', api_family_in_college, api_housing * ', ']
+            UserUtils.add_csv_row(test_output, test_output_row)
           end
         end
       end

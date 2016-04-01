@@ -24,7 +24,7 @@
 
 module Berkeley
   class Terms
-    include ActiveAttr::Model, ClassLogger, DatedFeed
+    include ActiveAttrModel, ClassLogger, DatedFeed
     extend Cache::Cacheable
 
     # The term shown in the My Classes widget & highlighted in the top Academics page.
@@ -56,14 +56,19 @@ module Berkeley
       end
     end
 
+    def self.legacy?(term_yr, term_cd)
+      self.fetch.campus[Berkeley::TermCodes.to_slug(term_yr, term_cd)].legacy?
+    end
+
     def initialize(options)
       terms = {}
       future_terms = []
       current_date = options[:fake_now] || DateTime.now
       @oldest = options[:oldest]
-      db_terms = CampusOracle::Queries.terms
+      parsing_legacy_terms = false
+
       # Do initial term parsing.
-      db_terms.each do |db_term|
+      CampusOracle::Queries.terms.each do |db_term|
         term = Term.new(db_term)
         terms[term.slug] = term
         @sis_current_term = term if term.sis_term_status == 'CT'
@@ -75,8 +80,11 @@ module Berkeley
           @previous ||= term
           @grading_in_progress ||= term if term.grades_entered >= current_date
         end
+        parsing_legacy_terms = true if term.slug == Settings.terms.legacy_cutoff
+        term.set_as_legacy if parsing_legacy_terms
         break if term.slug == @oldest
       end
+
       @current = @running || future_terms.pop
       if (@next = future_terms.pop)
         if (@future = future_terms.pop)

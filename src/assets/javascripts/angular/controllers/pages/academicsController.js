@@ -1,6 +1,7 @@
 /* jshint camelcase: false */
 'use strict';
 
+var _ = require('lodash');
 var angular = require('angular');
 
 /**
@@ -10,6 +11,9 @@ angular.module('calcentral.controllers').controller('AcademicsController', funct
   var title = 'My Academics';
   apiService.util.setTitle(title);
   $scope.backToText = title;
+  $scope.academics = {
+    isLoading: true
+  };
 
   var checkPageExists = function(page) {
     if (!page) {
@@ -129,9 +133,9 @@ angular.module('calcentral.controllers').controller('AcademicsController', funct
     }
 
     $scope.isLSStudent = academicsService.isLSStudent($scope.collegeAndLevel);
-    $scope.isUndergraduate = ($scope.collegeAndLevel && $scope.collegeAndLevel.standing === 'Undergraduate');
+    $scope.isUndergraduate = _.includes(_.get($scope.collegeAndLevel, 'careers'), 'Undergraduate');
     $scope.isProfileCurrent = !$scope.transitionTerm || $scope.transitionTerm.isProfileCurrent;
-    $scope.showProfileMessage = (!$scope.isProfileCurrent || !$scope.collegeAndLevel || !$scope.collegeAndLevel.standing);
+    $scope.showProfileMessage = (!$scope.isProfileCurrent || !$scope.collegeAndLevel || _.isEmpty($scope.collegeAndLevel.careers));
 
     $scope.hasTeachingClasses = academicsService.hasTeachingClasses(data.teachingSemesters);
     if (data.teachingSemesters) {
@@ -152,8 +156,11 @@ angular.module('calcentral.controllers').controller('AcademicsController', funct
         $scope.widgetSemesterName = $scope.selectedTeachingSemester.name;
       }
     }
-    $scope.gpaUnits.cumulativeGpaFloat = $scope.gpaUnits.cumulativeGpa; // cumulativeGpa is passed as a string to maintain two significant digits
-    $scope.gpaUnits.cumulativeGpa = parseFloat($scope.gpaUnits.cumulativeGpa); // converted to Float to be processed regularly
+    // cumulativeGpa is passed as a string to maintain two significant digits
+    $scope.gpaUnits.cumulativeGpaFloat = $scope.gpaUnits.cumulativeGpa;
+    // Convert these to Number types to be processed regularly. `parseFloat` returns NaN if the input value does not contain at least one digit.
+    $scope.gpaUnits.cumulativeGpa = parseFloat($scope.gpaUnits.cumulativeGpa);
+    $scope.gpaUnits.totalUnits = parseFloat($scope.gpaUnits.totalUnits);
   };
 
   var filterWidgets = function() {
@@ -161,7 +168,8 @@ angular.module('calcentral.controllers').controller('AcademicsController', funct
     $scope.isAcademicInfoAvailable = !!($scope.hasRegstatus ||
                                        ($scope.semesters && $scope.semesters.length) ||
                                        ($scope.requirements && $scope.requirements.length));
-
+    // The university_requirements widget is also used on Advising Dashboard.
+    $scope.academics.universityRequirements = $scope.requirements;
     $scope.showStatusAndBlocks = !$scope.filteredForDelegate &&
                                  ($scope.hasRegStatus ||
                                  ($scope.regblocks && !$scope.regblocks.noStudentId) ||
@@ -192,5 +200,6 @@ angular.module('calcentral.controllers').controller('AcademicsController', funct
       var getBadges = badgesFactory.getBadges().success(loadBadges);
       $q.all([getAcademics, getBadges]).then(filterWidgets);
     }
+    $scope.academics.isLoading = false;
   });
 });

@@ -41,19 +41,37 @@ describe CampusSolutions::FinancialAidDataController do
         }
         context 'advisor' do
           let(:filter_type) { CampusSolutions::MyFinancialAidFilteredForAdvisor }
-          let(:original_user_id) { 'original_advisor_user_id' }
-          it 'should filter the feed' do
-            expect(subject['key']).to eq 'value'
-          end
-        end
-        context 'delegate user' do
-          let(:filter_type) { CampusSolutions::MyFinancialAidFilteredForDelegate }
-          let(:original_user_id) { 'original_delegate_user_id' }
+          let(:original_user_id) { SessionKey.original_advisor_user_id }
           it 'should filter the feed' do
             expect(subject['key']).to eq 'value'
           end
         end
       end
+      context 'delegate user' do
+        before(:each) {
+          model = double get_feed_as_json: { key: 'value' }
+          expect(model).to receive(:aid_year=).with '2016'
+          expect(filter_type).to receive(:from_session).and_return model
+          expect(CampusSolutions::MyFinancialAidData).to_not receive :from_session
+        }
+        subject {
+          response = get feed, options
+          JSON.parse response.body
+        }
+        let(:uid) {user_id}
+        let(:campus_solutions_id) {random_id}
+        let(:privileges) do
+          {
+            financial: true
+          }
+        end
+        include_context 'delegated access'
+        let(:filter_type) { CampusSolutions::MyFinancialAidFilteredForDelegate }
+        it 'should filter the feed' do
+          expect(subject['key']).to eq 'value'
+        end
+      end
     end
   end
+
 end

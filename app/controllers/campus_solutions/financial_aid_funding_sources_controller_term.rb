@@ -1,5 +1,8 @@
 module CampusSolutions
   class FinancialAidFundingSourcesTermController < CampusSolutionsController
+    include AllowDelegateViewAs
+
+    before_filter :authorize_for_financial
 
     def get
       model = CampusSolutions::MyFinancialAidFundingSourcesTerm.from_session(session)

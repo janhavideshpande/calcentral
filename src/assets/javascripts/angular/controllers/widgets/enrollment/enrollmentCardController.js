@@ -7,8 +7,49 @@ var _ = require('lodash');
  * Enrollment Card Controller
  * Main controller for the enrollment card on the My Academics page
  */
-angular.module('calcentral.controllers').controller('EnrollmentCardController', function(apiService, enrollmentFactory, holdsFactory, $scope, $q) {
+angular.module('calcentral.controllers').controller('EnrollmentCardController', function(apiService, badgesFactory, enrollmentFactory, holdsFactory, $route, $scope, $q) {
   var backToText = 'Class Enrollment';
+  var sections = [
+    {
+      id: 'plan',
+      title: 'Plan'
+    },
+    {
+      id: 'explore',
+      title: 'Explore'
+    },
+    {
+      id: 'schedule',
+      title: 'Schedule'
+    },
+    {
+      id: 'decide',
+      title: 'Decide',
+      show: true
+    },
+    {
+      id: 'adjust',
+      title: 'Adjust',
+      show: true
+    }
+  ];
+  var sectionsLaw = [
+    {
+      id: 'plan_law',
+      title: 'Plan',
+      show: true
+    },
+    {
+      id: 'decide',
+      title: 'Appointment Start Times',
+      show: true
+    },
+    {
+      id: 'adjust',
+      title: 'Enroll',
+      show: true
+    }
+  ];
   $scope.enrollment = {
     holds: {
       isLoading: true,
@@ -18,34 +59,7 @@ angular.module('calcentral.controllers').controller('EnrollmentCardController', 
       isLoading: true
     },
     isLoading: true,
-    terms: [],
-    sections: [
-      {
-        id: 'meet_advisor',
-        title: 'Meet Advisor'
-      },
-      {
-        id: 'plan',
-        title: 'Plan'
-      },
-      {
-        id: 'explore',
-        title: 'Explore'
-      },
-      {
-        id: 'schedule',
-        title: 'Schedule'
-      },
-      {
-        id: 'decide',
-        title: 'Decide',
-        show: true
-      },
-      {
-        id: 'adjust',
-        title: 'Adjust'
-      }
-    ]
+    terms: []
   };
 
   /**
@@ -72,20 +86,6 @@ angular.module('calcentral.controllers').controller('EnrollmentCardController', 
   };
 
   /**
-   * Map enrollment periods by id (e.g. 'phase1')
-   * This makes it easier to look it up in JavaScript
-   */
-  var mapEnrollmentPeriodsById = function(data) {
-    if (!data.enrollmentPeriod) {
-      return data;
-    }
-
-    data.enrollmentPeriodsById = _.indexBy(data.enrollmentPeriod, 'id');
-
-    return data;
-  };
-
-  /**
    * Add aditional metadata to the links
    */
   var mapLinks = function(data) {
@@ -101,6 +101,16 @@ angular.module('calcentral.controllers').controller('EnrollmentCardController', 
     return data;
   };
 
+  var setSections = function(data) {
+    if ($scope.enrollment.isLawStudent) {
+      data.sections = angular.copy(sectionsLaw);
+    } else {
+      data.sections = angular.copy(sections);
+    }
+
+    return data;
+  };
+
   /**
    * Parse a certain enrollment term
    */
@@ -110,8 +120,8 @@ angular.module('calcentral.controllers').controller('EnrollmentCardController', 
       return;
     }
 
-    termData = mapEnrollmentPeriodsById(termData);
     termData = mapLinks(termData);
+    termData = setSections(termData);
     setTermData(termData, termData.term);
   };
 
@@ -171,9 +181,9 @@ angular.module('calcentral.controllers').controller('EnrollmentCardController', 
   var parseAcademicPlan = function(data) {
     var feedData = _.get(data, 'data.feed');
 
-    if (feedData.updateAcademicPlan) {
-      $scope.enrollment.academicPlan.updateLink = feedData.updateAcademicPlan;
-      _.each(feedData.academicplans, function(academicPlan) {
+    if (_.get(feedData, 'updateAcademicPlanner')) {
+      $scope.enrollment.academicPlan.updateLink = feedData.updateAcademicPlanner;
+      _.each(feedData.academicplanner, function(academicPlan) {
         setTermData({
           academicPlan: academicPlan
         }, academicPlan.term);
@@ -187,16 +197,31 @@ angular.module('calcentral.controllers').controller('EnrollmentCardController', 
    * Load the academic plan URL and information
    */
   var loadAcademicPlan = function() {
+    if (!apiService.user.profile.features.csAcademicPlanner) {
+      $scope.enrollment.academicPlan.isLoading = false;
+      return true;
+    }
     return enrollmentFactory.getAcademicPlan().then(parseAcademicPlan);
   };
+
+  /**
+   * Parse the badges
+   * We need this information to see whether they are a law student
+   */
+  var parseBadges = function(data) {
+    $scope.enrollment.isLawStudent = _.get(data, 'data.studentInfo.isLawStudent');
+  };
+
+  var getBadges = badgesFactory.getBadges().then(parseBadges);
 
   /**
    * We should check the roles of the current person since we should only load
    * the enrollment card for students
    */
   var checkRoles = function(data) {
-    if (_.get(data, 'student')) {
-      loadEnrollmentData().then(loadAcademicPlan);
+    $scope.isAdvisingStudentLookup = $route.current.isAdvisingStudentLookup;
+    if ($scope.isAdvisingStudentLookup || _.get(data, 'student')) {
+      getBadges.then(loadEnrollmentData).then(loadAcademicPlan);
       loadHolds();
     } else {
       stopMainSpinner();

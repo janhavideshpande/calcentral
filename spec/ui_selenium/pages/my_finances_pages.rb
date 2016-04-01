@@ -10,7 +10,7 @@ module CalCentralPages
     h1(:page_heading, :xpath => '//h1[text()="My Finances"]')
 
     # BILLING SUMMARY CARD
-    h2(:billing_summary_heading, :xpath => '//h2[text()="Billing Summary"]')
+    h2(:billing_summary_heading, :xpath => '//h2[contains(text(),"Billing Summary")]')
     link(:details_link, :text => 'Details')
     div(:billing_summary_spinner, :xpath => '//h2[contains(.,"Billing Summary")]/../following-sibling::div[@class="cc-spinner"]')
     paragraph(:no_cars_data_msg, :xpath => '//p[@data-ng-if="myfinancesError"]')
@@ -55,7 +55,7 @@ module CalCentralPages
 
     link(:finaid_t_and_c_link, :text => 'Complete Terms and Conditions')
     link(:finaid_title_iv_link, :text => 'Complete Title IV')
-    link(:finaid_details_link, :xpath => '//h2[text()="Financial Aid and Scholarships"]/following-sibling::a')
+    link(:finaid_details_link, :xpath => '//h2[contains(.,"Financial Aid and Scholarships")]/following-sibling::a')
     link(:awards_link, :xpath => '//div[@data-ng-controller="FinaidSummaryController"]//a[contains(.,"View Awards")]')
     link(:shopping_sheet_link, :xpath => '//a[contains(.,"Shopping Sheet")]')
 

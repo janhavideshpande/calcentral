@@ -1,6 +1,24 @@
 describe CampusOracle::Queries do
   let(:current_term) {Berkeley::Terms.fetch.current}
 
+  it_behaves_like 'an Oracle driven data source' do
+    subject { CampusOracle::Queries }
+  end
+
+  describe '.stringify_column!' do
+    context 'when column is course control number' do
+      it 'converts to 5 digit string with zero padding' do
+        row_hash = {'course_cntl_num' => 123}
+        CampusOracle::Queries.stringify_column!(row_hash, 'course_cntl_num')
+        expect(row_hash['course_cntl_num']).to eq '00123'
+      end
+    end
+  end
+
+  it 'provides settings' do
+    expect(CampusOracle::Queries.settings).to be Settings.campusdb
+  end
+
   it 'should find Oliver' do
     data = CampusOracle::Queries.get_person_attributes 2040, current_term.year, current_term.code
     expect(data['first_name']).to eq 'Oliver'
@@ -259,13 +277,6 @@ describe CampusOracle::Queries do
       expect(info['first_reg_term_cd']).to eq 'D'
       expect(info['first_reg_term_yr']).to eq '2013'
     end
-  end
-
-  it 'should find a grad student that used to be an undergrad', if: CampusOracle::Queries.test_data? do
-    expect(CampusOracle::Queries.is_previous_ugrad?('212388')).to be true
-    expect(CampusOracle::Queries.is_previous_ugrad?('212389')).to be true   # grad student expired, previous ugrad
-    expect(CampusOracle::Queries.is_previous_ugrad?('212390')).to be false  # grad student, but not previous ugrad
-    expect(CampusOracle::Queries.is_previous_ugrad?('300939')).to be true   # ugrad only
   end
 
   it 'should find a user with an expired LDAP account', if: CampusOracle::Queries.test_data? do

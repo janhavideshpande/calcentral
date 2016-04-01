@@ -1,5 +1,3 @@
-require 'set'
-
 describe CanvasCsv::AddNewUsers do
 
   let(:user_report_csv_string) do
@@ -7,18 +5,16 @@ describe CanvasCsv::AddNewUsers do
       'canvas_user_id,user_id,login_id,first_name,last_name,full_name,email,status',
       '123,22729403,946123,John,Smith,john.smith@berkeley.edu,active',
       '124,UID:946124,946124,Jane,Smith,Jane Smith,janesmith@gmail.com,active',
-      '125,22729405,946125,Charmaine,D\'Silva,Charmaine D\'Silva,charmainedsilva@berkeley.edu,active',
+      '125,UID:946125,inactive-946125,Charmaine,Golden,Charmaine Golden,charmainedgolden@berkeley.edu,active',
       '126,22729407,946126,Brian,Warner,Brian Warner,bwarner@example.com,active'
      ].join("\n")
   end
 
-  # Email addresss changes for Charmaine D'Silva
-  # SIS User ID changes for Jane Smith
   let(:sis_active_uids) { %w(946122 946123 946124 946125 946126 946127).to_set }
   let(:sis_active_people) do
     [
-      {'ldap_uid'=>'946122', 'first_name'=>'Charmaine', 'last_name'=>'D\'Silva', 'email_address'=>'charmainedsilva@example.com', 'student_id'=>'22729405'},
-      {'ldap_uid'=>'946127', 'first_name'=>'Dwight', 'last_name'=>'Schrute', 'email_address'=>'dschrute@schrutefarms.com', 'student_id'=>nil},
+      {ldap_uid: '946122', first_name: 'Charmaine', last_name: 'D\'Silva', email_address: 'charmainedsilva@example.com', student_id: '22729405'},
+      {ldap_uid: '946127', first_name: 'Dwight', last_name: 'Schrute', email_address: 'dschrute@schrutefarms.com', student_id: nil},
     ]
   end
 
@@ -35,7 +31,7 @@ describe CanvasCsv::AddNewUsers do
     allow(DateTime).to receive(:now).and_return(fake_now_datetime)
     allow_any_instance_of(Canvas::Report::Users).to receive(:get_csv).and_return(user_report_csv)
     allow(CampusOracle::Queries).to receive(:get_all_active_people_uids).and_return(sis_active_uids)
-    allow(CampusOracle::Queries).to receive(:get_basic_people_attributes).and_return(sis_active_people)
+    allow(User::BasicAttributes).to receive(:attributes_for_uids).and_return(sis_active_people)
 
     # have to mock the responses due to dependency on Campus Oracle data
     allow(subject).to receive(:derive_sis_user_id).with(sis_active_people[0]).and_return('22729405')
@@ -98,7 +94,7 @@ describe CanvasCsv::AddNewUsers do
       expect(csv_array[0]).to eq %w(canvas_user_id user_id login_id first_name last_name full_name email status)
       expect(csv_array[1][2]).to eq '946123'
       expect(csv_array[2][2]).to eq '946124'
-      expect(csv_array[3][2]).to eq '946125'
+      expect(csv_array[3][2]).to eq 'inactive-946125'
     end
 
     it 'returns existing file path if user report already obtained' do
@@ -116,25 +112,25 @@ describe CanvasCsv::AddNewUsers do
 
   describe '#load_new_active_users' do
     it 'loads new active users into array' do
-      expect(CampusOracle::Queries).to receive(:get_basic_people_attributes).with(['946122','946127']).and_return(sis_active_people)
-      result = subject.load_new_active_users
+      expect(User::BasicAttributes).to receive(:attributes_for_uids).with(['946122','946127']).and_return(sis_active_people)
+      subject.load_new_active_users
       loaded_users = subject.instance_eval { @new_active_sis_users }
       expect(loaded_users).to be_an_instance_of Array
       expect(loaded_users.count).to eq 2
       expect(loaded_users[0]).to be_an_instance_of Hash
       expect(loaded_users[1]).to be_an_instance_of Hash
-      expect(loaded_users[0]['ldap_uid']).to eq '946122'
-      expect(loaded_users[0]['first_name']).to eq 'Charmaine'
-      expect(loaded_users[0]['last_name']).to eq 'D\'Silva'
-      expect(loaded_users[1]['ldap_uid']).to eq '946127'
-      expect(loaded_users[1]['first_name']).to eq 'Dwight'
-      expect(loaded_users[1]['last_name']).to eq 'Schrute'
+      expect(loaded_users[0][:ldap_uid]).to eq '946122'
+      expect(loaded_users[0][:first_name]).to eq 'Charmaine'
+      expect(loaded_users[0][:last_name]).to eq 'D\'Silva'
+      expect(loaded_users[1][:ldap_uid]).to eq '946127'
+      expect(loaded_users[1][:first_name]).to eq 'Dwight'
+      expect(loaded_users[1][:last_name]).to eq 'Schrute'
     end
 
     it 'loads empty array when no new active users' do
       allow(subject).to receive(:new_active_user_uids).and_return([])
-      expect(CampusOracle::Queries).to_not receive(:get_basic_people_attributes)
-      result = subject.load_new_active_users
+      expect(User::BasicAttributes).to_not receive(:attributes_for_uids)
+      subject.load_new_active_users
       loaded_users = subject.instance_eval { @new_active_sis_users }
       expect(loaded_users).to eq []
     end

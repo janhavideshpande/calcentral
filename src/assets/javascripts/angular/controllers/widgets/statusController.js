@@ -6,7 +6,7 @@ var angular = require('angular');
 /**
  * Status controller
  */
-angular.module('calcentral.controllers').controller('StatusController', function(activityFactory, apiService, badgesFactory, financesFactory, holdsFactory, $scope, $q) {
+angular.module('calcentral.controllers').controller('StatusController', function(activityFactory, apiService, badgesFactory, financesFactory, holdsFactory, $http, $scope, $q) {
   // Keep track on whether the status has been loaded or not
   var hasLoaded = false;
 
@@ -86,6 +86,16 @@ angular.module('calcentral.controllers').controller('StatusController', function
     $scope.statusLoading = '';
   };
 
+  /**
+   * Listen for this event in order to make a refresh request which updates the
+   * displayed `api.user.profile.firstName` in the gear_popover.
+   */
+  $scope.$on('calcentral.custom.api.preferredname.update', function() {
+    apiService.user.fetch({
+      refreshCache: true
+    });
+  });
+
   $scope.$on('calcentral.api.user.isAuthenticated', function(event, isAuthenticated) {
     if (isAuthenticated && !hasLoaded) {
       // Make sure to only load this once
@@ -101,12 +111,19 @@ angular.module('calcentral.controllers').controller('StatusController', function
 
       // Get all the necessary data from the different factories
       var getBadges = badgesFactory.getBadges().success(loadStudentInfo);
-      var getFinances = financesFactory.getFinances().success(loadFinances);
-      var getFinaidActivityOld = activityFactory.getFinaidActivityOld().then(loadActivity);
       var getHolds = holdsFactory.getHolds().then(loadHolds);
+      var statusGets = [getBadges, getHolds];
+
+      // Only fetch financial data for delegates who have been given explicit permssion.
+      var includeFinancial = (!apiService.user.profile.delegateActingAsUid || apiService.user.profile.delegateViewAsPrivileges.financial);
+      if (includeFinancial) {
+        var getFinances = financesFactory.getFinances().success(loadFinances);
+        var getFinaidActivityOld = activityFactory.getFinaidActivityOld().then(loadActivity);
+        statusGets.push(getFinances, getFinaidActivityOld);
+      }
 
       // Make sure to hide the spinner when everything is loaded
-      $q.all(getBadges, getFinances, getFinaidActivityOld, getHolds).then(finishLoading);
+      $q.all(statusGets).then(finishLoading);
     }
   });
 });

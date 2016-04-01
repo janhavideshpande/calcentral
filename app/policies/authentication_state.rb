@@ -5,15 +5,23 @@ class AuthenticationState
 
   def initialize(session)
     @user_id = session['user_id']
-    @original_user_id = session['original_user_id']
-    @original_advisor_user_id = session['original_advisor_user_id']
-    @original_delegate_user_id = session['original_delegate_user_id']
+    @original_user_id = session[SessionKey.original_user_id]
+    @original_advisor_user_id = session[SessionKey.original_advisor_user_id]
+    @original_delegate_user_id = session[SessionKey.original_delegate_user_id]
     @canvas_masquerading_user_id = session['canvas_masquerading_user_id']
     @lti_authenticated_only = session['lti_authenticated_only']
   end
 
+  def classic_viewing_as?
+    @original_user_id.present? && (@original_user_id != @user_id)
+  end
+
   def authenticated_as_delegate?
     @original_delegate_user_id.present?
+  end
+
+  def delegated_privileges
+    @delegated_privileges ||= get_delegated_privileges
   end
 
   def authenticated_as_advisor?
@@ -29,7 +37,8 @@ class AuthenticationState
 
   def original_user_auth
     @original_user_auth ||= User::Auth.get original_user_id
-    # If the previous line resulted in nil then we look for delegate user
+    # If the previous line resulted in nil then we look for other view-as types
+    @original_user_auth ||= User::Auth.get original_advisor_user_id
     @original_user_auth ||= User::Auth.get original_delegate_user_id
   end
 
@@ -38,7 +47,7 @@ class AuthenticationState
   end
 
   def real_user_auth
-    if (original_user_id || original_delegate_user_id) && user_id
+    if (original_user_id || original_advisor_user_id || original_delegate_user_id) && user_id
       return original_user_auth
     elsif lti_authenticated_only
       # Public permissions only.
@@ -52,6 +61,8 @@ class AuthenticationState
     if user_id.present?
       if original_user_id.present?
         return original_user_id
+      elsif original_advisor_user_id.present?
+        return original_advisor_user_id
       elsif original_delegate_user_id.present?
         return original_delegate_user_id
       elsif canvas_masquerading_user_id
@@ -68,7 +79,7 @@ class AuthenticationState
 
   # For better exception messages.
   def to_s
-    session_props = %w(user_id original_user_id original_delegate_user_id canvas_masquerading_user_id lti_authenticated_only).map do |prop|
+    session_props = %w(user_id original_user_id original_advisor_user_id original_delegate_user_id canvas_masquerading_user_id lti_authenticated_only).map do |prop|
       if (prop_value = self.send prop.to_sym)
         "#{prop}=#{prop_value}"
       end
@@ -82,8 +93,22 @@ class AuthenticationState
 
   def viewing_as?
     # Return true if either of the two view_as modes is active
-    original_uid = original_user_id || original_delegate_user_id
+    original_uid = original_user_id || original_advisor_user_id || original_delegate_user_id
     original_uid.present? && user_id.present? && (original_uid != user_id)
+  end
+
+  private
+
+  def get_delegated_privileges
+    return {} unless authenticated_as_delegate?
+    response = CampusSolutions::DelegateStudents.new(user_id: original_delegate_user_id).get
+    if response[:feed] && (students = response[:feed][:students])
+      campus_solutions_id = CalnetCrosswalk::ByUid.new(user_id: user_id).lookup_campus_solutions_id
+      student = students.detect { |s| campus_solutions_id == s[:campusSolutionsId] }
+      (student && student[:privileges] && student[:privileges]) || {}
+    else
+      {}
+    end
   end
 
 end

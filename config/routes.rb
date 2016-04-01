@@ -128,18 +128,30 @@ Calcentral::Application.routes.draw do
     post '/logout' => 'sessions#destroy', :as => :logout, :via => :post
   end
 
-  # Act-as endpoints
-  post '/advisor_act_as' => 'advisor_act_as#start'
-  post '/stop_advisor_act_as' => 'advisor_act_as#stop'
-  post '/delegate_act_as' => 'delegate_act_as#start'
-  post '/stop_delegate_act_as' => 'delegate_act_as#stop'
+  # View-as endpoints
+  get '/stored_users' => 'stored_users#get', :via => :get, :defaults => { :format => 'json' }
   post '/act_as' => 'act_as#start'
   post '/stop_act_as' => 'act_as#stop'
-  get '/stored_users' => 'stored_users#get', :via => :get, :defaults => { :format => 'json' }
   post '/store_user/saved' => 'stored_users#store_saved_uid', via: :post, defaults: { format: 'json' }
   post '/delete_user/saved' => 'stored_users#delete_saved_uid', via: :post, defaults: { format: 'json' }
   post '/delete_users/recent' => 'stored_users#delete_all_recent', via: :post, defaults: { format: 'json' }
   post '/delete_users/saved' => 'stored_users#delete_all_saved', via: :post, defaults: { format: 'json' }
+
+  # Advisor endpoints
+  get '/api/advising/academic_plan/:student_uid' => 'student_overview#academic_plan', :defaults => { :format => 'json' }
+  get '/api/advising/academics/:student_uid' => 'student_overview#academics', :defaults => { :format => 'json' }
+  get '/api/advising/enrollment_term/:student_uid' => 'student_overview#enrollment_term', :defaults => { :format => 'json' }
+  get '/api/advising/enrollment_terms/:student_uid' => 'student_overview#enrollment_terms', :defaults => { :format => 'json' }
+  post '/advisor_act_as' => 'advisor_act_as#start'
+  post '/stop_advisor_act_as' => 'advisor_act_as#stop'
+
+  # Delegated Access endpoints
+  get '/api/campus_solutions/delegate_terms_and_conditions' => 'campus_solutions/delegate_access#get_terms_and_conditions', :defaults => { :format => 'json' }
+  get '/api/campus_solutions/delegate_management_url' => 'campus_solutions/delegate_access#get_delegate_management_url', :defaults => { :format => 'json' }
+  get '/api/campus_solutions/delegate_access/students' => 'campus_solutions/delegate_access#get_students', :defaults => { :format => 'json' }
+  post '/delegate_act_as' => 'delegate_act_as#start'
+  post '/stop_delegate_act_as' => 'delegate_act_as#stop'
+  post '/api/campus_solutions/delegate_access' => 'campus_solutions/delegate_access#post', :defaults => { :format => 'json' }
 
   # Campus Solutions general purpose endpoints
   get '/api/campus_solutions/checklist' => 'campus_solutions/checklist#get', :via => :get, :defaults => { :format => 'json' }
@@ -155,20 +167,18 @@ Calcentral::Application.routes.draw do
   get '/api/campus_solutions/currency_code' => 'campus_solutions/currency_code#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/language_code' => 'campus_solutions/language_code#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/translate' => 'campus_solutions/translate#get', :via => :get, :defaults => { :format => 'json' }
-  get '/api/campus_solutions/list_of_values' => 'campus_solutions/list_of_values#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/aid_years' => 'campus_solutions/aid_years#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/financial_aid_data' => 'campus_solutions/financial_aid_data#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/financial_aid_funding_sources' => 'campus_solutions/financial_aid_funding_sources#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/financial_aid_funding_sources_term' => 'campus_solutions/financial_aid_funding_sources_term#get', :via => :get, :defaults => { :format => 'json' }
-  get '/api/campus_solutions/delegate_terms_and_conditions' => 'campus_solutions/delegate_access#get_terms_and_conditions', :via => :get, :defaults => { :format => 'json' }
-  get '/api/campus_solutions/delegate_management_url' => 'campus_solutions/delegate_access#get_delegate_management_url', :via => :get, :defaults => { :format => 'json' }
-  get '/api/campus_solutions/delegate_access/students' => 'campus_solutions/delegate_access#get_students', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/holds' => 'campus_solutions/holds#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/enrollment_term' => 'campus_solutions/enrollment_term#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/enrollment_terms' => 'campus_solutions/enrollment_terms#get', :via => :get, :defaults => { :format => 'json' }
   get '/api/campus_solutions/academic_plan' => 'campus_solutions/academic_plan#get', :via => :get, :defaults => { :format => 'json' }
+  get '/api/campus_solutions/advising_resources' => 'campus_solutions/advising_resources#get', :via => :get, :defaults => { :format => 'json' }
+  get '/api/campus_solutions/ferpa_deeplink' => 'campus_solutions/ferpa_deeplink#get', :via => :get, :defaults => { :format => 'json' }
+  get '/api/campus_solutions/billing' => 'campus_solutions/billing#get', :via => :get, :defaults => { :format => 'json' }
   post '/api/campus_solutions/address' => 'campus_solutions/address#post', :via => :post, :defaults => { :format => 'json' }
-  post '/api/campus_solutions/delegate_access' => 'campus_solutions/delegate_access#post', :via => :post, :defaults => { :format => 'json' }
   post '/api/campus_solutions/email' => 'campus_solutions/email#post', :via => :post, :defaults => { :format => 'json' }
   post '/api/campus_solutions/person_name' => 'campus_solutions/person_name#post', :via => :post, :defaults => { :format => 'json' }
   post '/api/campus_solutions/phone' => 'campus_solutions/phone#post', :via => :post, :defaults => { :format => 'json' }
@@ -182,10 +192,11 @@ Calcentral::Application.routes.draw do
   delete '/api/campus_solutions/address/:type' => 'campus_solutions/address#delete', :via => :delete, :defaults => { :format => 'json' }
   delete '/api/campus_solutions/email/:type' => 'campus_solutions/email#delete', :via => :delete, :defaults => { :format => 'json' }
   delete '/api/campus_solutions/emergency_contact/:contactName' => 'campus_solutions/emergency_contact#delete', :via => :post, :defaults => { :format => 'json' }
-  delete '/api/campus_solutions/language/:jpmCatItemId' => 'campus_solutions/language#delete', :via => :delete, :defaults => { :format => 'json' }
+  delete '/api/campus_solutions/language/:languageCode' => 'campus_solutions/language#delete', :via => :delete, :defaults => { :format => 'json' }
   delete '/api/campus_solutions/person_name/:type' => 'campus_solutions/person_name#delete', :via => :delete, :defaults => { :format => 'json' }
   delete '/api/campus_solutions/phone/:type' => 'campus_solutions/phone#delete', :via => :delete, :defaults => { :format => 'json' }
   delete '/api/campus_solutions/ethnicity/:ethnicGroupCode/:regRegion' => 'campus_solutions/ethnicity#delete', :via => :delete, :defaults => { :format => 'json' }
+  delete '/api/campus_solutions/work_experience/:sequenceNbr' => 'campus_solutions/work_experience#delete', :via => :delete, :defaults => { :format => 'json' }
 
   # Redirect to College Scheduler
   get '/college_scheduler/:acad_career/:term_id' => 'campus_solutions/college_scheduler#get'

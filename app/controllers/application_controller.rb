@@ -2,6 +2,7 @@ class ApplicationController < ActionController::Base
   include Pundit
   protect_from_forgery
   before_filter :check_reauthentication
+  before_filter :deny_if_filtered
   after_filter :access_log
   rescue_from Pundit::NotAuthorizedError, with: :user_not_authorized
 
@@ -45,8 +46,23 @@ class ApplicationController < ActionController::Base
       delete_reauth_cookie
       return
     end
-    return unless Settings.features.reauthentication
-    reauthenticate(redirect_path: '/') if current_user.viewing_as? && !cookies[:reauthenticated]
+    reauthenticate(redirect_path: '/') if session_state_requires_reauthentication?
+  end
+
+  # Only a small subset of student API feeds are available to a delegate, and so
+  # these methods filter controller endpoints by default.
+  def allow_if_delegate_view_as?
+    false
+  end
+  # The majority of API feeds are available to advisors during view-as mode. Remove advisor access by overriding this method.
+  def allow_if_advisor_view_as?
+    true
+  end
+  def deny_if_filtered
+    deny_delegate = !allow_if_delegate_view_as? && current_user.authenticated_as_delegate?
+    raise Pundit::NotAuthorizedError.new("By delegate #{current_user.original_delegate_user_id}") if deny_delegate
+    deny_advisor = !allow_if_advisor_view_as? && current_user.authenticated_as_advisor?
+    raise Pundit::NotAuthorizedError.new("By advisor #{current_user.original_advisor_user_id}") if deny_advisor
   end
 
   def delete_reauth_cookie
@@ -77,6 +93,12 @@ class ApplicationController < ActionController::Base
       {protocol: Settings.application.protocol}
     else
       {}
+    end
+  end
+
+  def check_directly_authenticated
+    unless current_user.directly_authenticated?
+      raise Pundit::NotAuthorizedError.new("By View-As user #{current_user.real_user_id}")
     end
   end
 
@@ -123,6 +145,21 @@ class ApplicationController < ActionController::Base
 
   private
 
+  def get_active_view_as_session_type
+    SessionKey::VIEW_AS_TYPES.find { |key| session.has_key? key }
+  end
+
+  def get_original_viewer_uid
+    key = get_active_view_as_session_type
+    key && session[key]
+  end
+
+  def session_state_requires_reauthentication?
+    Settings.features.reauthentication &&
+      (current_user.classic_viewing_as? || current_user.authenticated_as_advisor?) &&
+      !cookies[:reauthenticated]
+  end
+
   def get_settings
     @server_settings = ServerRuntime.get_settings
   end
@@ -139,7 +176,7 @@ class ApplicationController < ActionController::Base
   end
 
   def session_message
-    session_keys = %w(user_id original_user_id original_advisor_user_id original_delegate_user_id canvas_user_id canvas_masquerading_user_id canvas_course_id)
+    session_keys = %w(user_id canvas_user_id canvas_course_id) + SessionKey::CANVAS_MASQUERADE_TYPES + SessionKey::VIEW_AS_TYPES
     session_keys.map { |key| "#{key}: #{session[key]}" if session[key] }.compact.join('; ')
   end
 
@@ -147,12 +184,8 @@ class ApplicationController < ActionController::Base
     # HTTP_X_FORWARDED_FOR is the client's IP when we're behind Apache; REMOTE_ADDR otherwise
     remote = request.env['HTTP_X_FORWARDED_FOR'] || request.env['REMOTE_ADDR']
     line = "ACCESS_LOG #{remote} #{request.request_method} #{request.filtered_path} #{status}"
-    if session['original_user_id']
-      line += " uid=#{session['original_user_id']}_acting_as_uid=#{session['user_id']}"
-    elsif session['original_advisor_user_id']
-      line += " uid=#{session['original_advisor_user_id']}_advisor_acting_as_uid=#{session['user_id']}"
-    elsif session['original_delegate_user_id']
-      line += " uid=#{session['original_delegate_user_id']}_delegate_acting_as_uid=#{session['user_id']}"
+    if (key = get_active_view_as_session_type)
+      line += " #{key}=#{session[key]} is viewing uid=#{session['user_id']}"
     else
       line += " uid=#{session['user_id']}"
     end

@@ -49,6 +49,11 @@ angular.module('calcentral.config').config(function($routeProvider) {
     controller: 'DashboardController',
     fireUpdatedFeeds: true
   }).
+  when('/delegate_landing', {
+    templateUrl: 'delegate_landing.html',
+    controller: 'DelegateLandingController',
+    isPublic: true
+  }).
   when('/delegate_welcome', {
     templateUrl: 'delegate_welcome.html',
     controller: 'DelegateWelcomeController'
@@ -59,6 +64,10 @@ angular.module('calcentral.config').config(function($routeProvider) {
   }).
   when('/finances/details', {
     templateUrl: 'cars_details.html',
+    controller: 'MyFinancesController'
+  }).
+  when('/billing/details', {
+    templateUrl: 'billing_details.html',
     controller: 'MyFinancesController'
   }).
   when('/finances/finaid/:finaidYearId?', {
@@ -76,6 +85,11 @@ angular.module('calcentral.config').config(function($routeProvider) {
   when('/profile/:category?', {
     templateUrl: 'profile.html',
     controller: 'ProfileController'
+  }).
+  when('/advising/student/:uid', {
+    templateUrl: 'advisor_student_overview.html',
+    controller: 'AdvisorStudentOverviewController',
+    isAdvisingStudentLookup: true
   }).
   when('/toolbox', {
     templateUrl: 'toolbox.html',
